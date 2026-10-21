@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: syncvault
+      POSTGRES_USER: syncvault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - metadata:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U syncvault -d syncvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  api:
+    build: .
+    environment:
+      SYNCVAULT_DATABASE_URL: postgresql+psycopg://syncvault:${POSTGRES_PASSWORD}@db:5432/syncvault
+      SYNCVAULT_STORAGE_ROOT: /data
+      SYNCVAULT_TOKENS: ${SYNCVAULT_TOKENS:?Set SYNCVAULT_TOKENS in .env}
+      SYNCVAULT_SESSION_TTL: "86400"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - objects:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+volumes:
+  metadata:
+  objects:

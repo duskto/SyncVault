@@ -1,0 +1,11 @@
+*
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!README.md
+!syncvault/
+!syncvault/**
+!migrations/
+!migrations/**
+!alembic.ini
+**/__pycache__

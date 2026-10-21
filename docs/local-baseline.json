@@ -1,0 +1,30 @@
+{
+  "kind": "local_split_reassembly_only",
+  "python": "3.13.5",
+  "platform": "Linux-6.18.26.1-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+  "measured_at": "2026-10-21T03:30:48.703669+00:00",
+  "network": "none",
+  "cases": [
+    {
+      "size_bytes": 16777216,
+      "chunk_size": 1048576,
+      "elapsed_seconds": 0.015458595000154673,
+      "sha256": "486692853f1d2a318df9bddf8db20dd038c0e0f285058c499b99e6e4db9bf3d6",
+      "process_cumulative_peak_rss_kib": 30912
+    },
+    {
+      "size_bytes": 16777216,
+      "chunk_size": 4194304,
+      "elapsed_seconds": 0.0158105489999798,
+      "sha256": "486692853f1d2a318df9bddf8db20dd038c0e0f285058c499b99e6e4db9bf3d6",
+      "process_cumulative_peak_rss_kib": 30912
+    },
+    {
+      "size_bytes": 16777216,
+      "chunk_size": 8388608,
+      "elapsed_seconds": 0.018119271999921693,
+      "sha256": "486692853f1d2a318df9bddf8db20dd038c0e0f285058c499b99e6e4db9bf3d6",
+      "process_cumulative_peak_rss_kib": 39228
+    }
+  ]
+}

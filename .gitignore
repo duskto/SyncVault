@@ -1,0 +1,50 @@
+# Local development guide and assistant configuration
+/文件同步与备份系统_开发指南.md
+/.agents/
+/.codex/
+/.aws/
+
+# Python environments, caches, and build output
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+build/
+dist/
+*.egg-info/
+
+# Secrets and local backup state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.syncvault/
+.syncvault-server/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Generated demo data and ad hoc reports (keep docs/ acceptance evidence)
+/demo-documents/
+/restored/
+benchmark-results*.json
+smoke-results*.json
+*.log
+*.tmp
+*.part
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

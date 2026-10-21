@@ -1,0 +1,117 @@
+{
+  "network": "WSL2 loopback to Docker published port; PostgreSQL 17; one API worker; warm filesystem cache; synthetic data",
+  "cases": [
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 1048576,
+      "concurrency": 1,
+      "elapsed_seconds": 1.5916172830002324,
+      "resume_seconds": 0.7640527340008703,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 40672,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 1048576,
+      "concurrency": 2,
+      "elapsed_seconds": 0.9384078120001504,
+      "resume_seconds": 0.4893350169986661,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 44128,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 1048576,
+      "concurrency": 4,
+      "elapsed_seconds": 0.5748902199993609,
+      "resume_seconds": 0.3077780029998394,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 49120,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 4194304,
+      "concurrency": 1,
+      "elapsed_seconds": 1.0266687029998138,
+      "resume_seconds": 0.5797905529998388,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 61792,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 4194304,
+      "concurrency": 2,
+      "elapsed_seconds": 0.5333452239992766,
+      "resume_seconds": 0.3095458970001346,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 71112,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 4194304,
+      "concurrency": 4,
+      "elapsed_seconds": 0.3925576669989823,
+      "resume_seconds": 0.23532448999867484,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 88008,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 8388608,
+      "concurrency": 1,
+      "elapsed_seconds": 0.8394552270001441,
+      "resume_seconds": 0.4744038079988968,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 103152,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 8388608,
+      "concurrency": 2,
+      "elapsed_seconds": 0.491265681999721,
+      "resume_seconds": 0.25409775899970555,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 111776,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    },
+    {
+      "size_bytes": 33554432,
+      "chunk_size": 8388608,
+      "concurrency": 4,
+      "elapsed_seconds": 0.49169200100004673,
+      "resume_seconds": 0.2839472579998983,
+      "initial_confirmed_bytes": 16777216,
+      "resume_confirmed_bytes": 16777216,
+      "client_process_peak_rss_kib": 119968,
+      "server_peak_rss_kib": null,
+      "note": "净负载按成功确认的块统计；不含 HTTP 开销或丢失响应后的重复接收。RSS 为此进程累计峰值；服务端内存需独立测量。"
+    }
+  ],
+  "server_process_cumulative_peak_rss_kib": 115256,
+  "server_memory_note": "VmHWM of API PID 1 after smoke + entire matrix; not an independent per-case measurement.",
+  "postgres_version": "17.11 (Debian 17.11-1.pgdg13+2)",
+  "server_python": "Python 3.13.16"
+}
