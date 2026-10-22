@@ -16,11 +16,16 @@ class Operation:
 
 def plan(state, full=False) -> list[Operation]:
     manifest = state.manifest()
+    pending = {item["logical_path"]: item for item in state.pending()}
     operations = []
     for entry in scan(state.root):
         old = manifest.get(entry.logical_path)
         if entry.skip_reason:
             action, reason = "skip", entry.skip_reason
+        elif entry.logical_path in pending:
+            action = "skip"
+            reason = ("上传任务已暂停，请使用 pending retry" if pending[entry.logical_path].get("paused")
+                      else "已有待续传快照")
         elif old is None:
             action, reason = "add", "尚未备份"
         elif full:

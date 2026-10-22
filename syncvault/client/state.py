@@ -2,6 +2,7 @@ import fcntl
 import json
 import os
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -34,6 +35,9 @@ class State:
                 logical_path TEXT PRIMARY KEY, snapshot_path TEXT NOT NULL,
                 upload_id TEXT, sha256 TEXT NOT NULL, chunk_size INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL, payload TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS upload_archive (
+                id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, payload TEXT NOT NULL
             );
         """)
 
@@ -89,7 +93,7 @@ class State:
             try:
                 fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
-                raise ValueError("此目录已有 push 进程正在运行") from error
+                raise ValueError("此目录已有 push 或任务管理进程正在运行") from error
             try:
                 yield
             finally:
@@ -113,6 +117,26 @@ class State:
                  pending["sha256"], pending["chunk_size"], json.dumps(pending)),
             )
 
+    def archived(self):
+        return [{"archive_id": row[0], "created_at": row[1], **json.loads(row[2])}
+                for row in self.db.execute(
+                    "SELECT id, created_at, payload FROM upload_archive ORDER BY created_at, id"
+                )]
+
+    def replace_pending(self, previous, replacement):
+        # Keep the previous snapshot referenced even after the replacement commits.
+        archive_id = uuid.uuid4().hex
+        with self.db:
+            self.db.execute("INSERT INTO upload_archive VALUES (?, unixepoch(), ?)",
+                            (archive_id, json.dumps(previous)))
+            self.db.execute(
+                "INSERT OR REPLACE INTO pending_uploads VALUES (?, ?, ?, ?, ?, unixepoch(), ?)",
+                (replacement["logical_path"], replacement["snapshot_path"],
+                 replacement.get("upload_id"), replacement["sha256"], replacement["chunk_size"],
+                 json.dumps(replacement)),
+            )
+        return archive_id
+
     def committed(self, pending, version):
         with self.db:
             self.db.execute(
@@ -133,8 +157,15 @@ class State:
             raise ValueError("快照不得是符号链接")
         return path
 
+    def snapshot_references(self):
+        return {p["snapshot_path"] for p in [*self.pending(), *self.archived()]}
+
+    def remove_snapshot_if_unreferenced(self, name):
+        if name not in self.snapshot_references():
+            self.snapshot_path(name).unlink(missing_ok=True)
+
     def cleanup_snapshots(self):
-        referenced = {p["snapshot_path"] for p in self.pending()}
+        referenced = self.snapshot_references()
         for path in (self.directory / "snapshots").iterdir():
             if path.name not in referenced and path.is_file() and not path.is_symlink():
                 path.unlink()

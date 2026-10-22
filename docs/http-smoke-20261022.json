@@ -1,0 +1,32 @@
+{
+  "namespace": "smoke-f8f89668b565",
+  "status": "passed",
+  "client_exit_code": 24,
+  "confirmed_chunks_before_exit": 1,
+  "resume_new_confirmed_bytes": 11534336,
+  "file_size": 12582912,
+  "restored_sha256": "ded3055308dcb447b61ad0e04ec45060f57b6d8b1acdc722d612ac62ca9f31b5",
+  "retained_version_id": "d5568fb91c754a62bc8e72980ee288b9",
+  "conflict": {
+    "namespace": "conflict-455966934441",
+    "status": "passed",
+    "history_versions": 3,
+    "conflict_exit_code": 1,
+    "archive_export_verified": true
+  },
+  "checks": [
+    "empty file",
+    "two historical versions",
+    "restore old version",
+    "local deletion retains history",
+    "abrupt client exit",
+    "resume missing chunks only",
+    "restore full hash",
+    "verify --full",
+    "remote content hash",
+    "conflict and explicit resolution",
+    "cancel retains snapshot",
+    "archive export",
+    "continue after conflict"
+  ]
+}

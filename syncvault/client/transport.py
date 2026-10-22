@@ -8,6 +8,7 @@ import httpx
 
 class APIError(RuntimeError):
     def __init__(self, response):
+        self.response = response
         self.status = response.status_code
         try:
             self.details = response.json().get("error", {})

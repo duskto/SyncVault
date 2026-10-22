@@ -4,11 +4,12 @@ import os
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
+from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from syncvault.server.api.dependencies import owner
-from syncvault.server.models import now
+from syncvault.server.models import Upload, now
 from syncvault.server.services.chunks import expected_size, publish_chunk
 from syncvault.server.services.finalize import complete
 from syncvault.server.services.uploads import (
@@ -21,6 +22,21 @@ from syncvault.shared.protocol import ProtocolError, UploadRequest
 
 router = APIRouter(prefix="/api/v1/uploads", tags=["uploads"])
 Owner = Annotated[str, Depends(owner)]
+
+
+@router.get("")
+def get_upload_by_key(
+    request: Request, user: Owner,
+    idempotency_key: str = Query(min_length=1, max_length=128),
+):
+    """Recover a lost initialization receipt without creating another session."""
+    with request.app.state.sessions() as db:
+        upload = db.scalar(select(Upload).where(
+            Upload.owner_id == user, Upload.idempotency_key == idempotency_key
+        ))
+        if upload is None:
+            raise ProtocolError(404, "NOT_FOUND", "上传会话不存在")
+        return upload_info(db, upload)
 
 
 @router.post("")

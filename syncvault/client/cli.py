@@ -9,15 +9,20 @@ import httpx
 import typer
 
 from syncvault.client.hashing import hash_file
+from syncvault.client.pending import cancel_pending, export_snapshot, retry_pending
 from syncvault.client.planner import plan as make_plan
 from syncvault.client.restore import restore as restore_file
+from syncvault.client.restore import verify_remote_content
 from syncvault.client.scanner import scan
 from syncvault.client.state import State
 from syncvault.client.transfer import push as push_files
+from syncvault.client.transfer import PushFailed
 from syncvault.client.transport import Remote
 from syncvault.shared.paths import logical_path as validate_path
 
 app = typer.Typer(no_args_is_help=True, help="SyncVault：单向、保留历史的文件备份")
+pending_app = typer.Typer(no_args_is_help=True, help="保留、导出和显式重试上传任务")
+app.add_typer(pending_app, name="pending")
 RootOption = Annotated[Path | None, typer.Option(help="已初始化的备份根目录，默认从当前目录查找")]
 
 
@@ -29,6 +34,8 @@ def emit(value):
 def errors():
     try:
         yield
+    except typer.Exit:
+        raise
     except (ValueError, OSError, RuntimeError, sqlite3.Error, httpx.HTTPError) as error:
         typer.echo(f"错误: {error}", err=True)
         raise typer.Exit(1) from error
@@ -61,10 +68,17 @@ def push(
     concurrency: Annotated[int, typer.Option(min=1, max=32)] = 4,
     chunk_size: Annotated[int, typer.Option(min=1, max=64 * 1024 * 1024)] = 4 * 1024 * 1024,
     full: bool = False,
+    continue_on_error: bool = False,
 ):
     """先续传未完成快照，再上传新增或修改文件。"""
     with errors(), State(root) as state, remote_for(state, concurrency) as remote:
-        versions = push_files(state, remote, concurrency, chunk_size, full, progress=emit)
+        try:
+            versions = push_files(state, remote, concurrency, chunk_size, full, progress=emit,
+                                  continue_on_error=continue_on_error)
+        except PushFailed as error:
+            emit({"committed": len(error.versions), "versions": error.versions,
+                  "failures": error.failures})
+            raise typer.Exit(1) from error
         emit({"committed": len(versions), "versions": versions})
 
 
@@ -73,6 +87,36 @@ def status(root: Path):
     """查看本地已备份清单和可恢复的上传会话。"""
     with errors(), State(root) as state:
         emit({"root": str(state.root), "manifest": state.manifest(), "pending": state.pending()})
+
+
+@pending_app.command("list")
+def pending_list(root: RootOption = None):
+    """查看待处理任务与重试前保留的归档任务。"""
+    with errors(), State.discover(root) as state:
+        emit({"pending": state.pending(), "archived": state.archived()})
+
+
+@pending_app.command("export")
+def pending_export(logical_path: str, output: Annotated[Path, typer.Option()],
+                   root: RootOption = None, archive: str | None = None):
+    """校验并导出快照，默认不覆盖；--archive 指定归档任务 ID。"""
+    with errors(), State.discover(root) as state:
+        emit(export_snapshot(state, logical_path, output, archive))
+
+
+@pending_app.command("cancel")
+def pending_cancel(logical_path: str, root: RootOption = None):
+    """取消远端 OPEN 会话并暂停本地任务，保留快照；已完成的会话更新本地清单。"""
+    with errors(), State.discover(root) as state, remote_for(state) as remote:
+        emit(cancel_pending(state, remote, validate_path(logical_path)))
+
+
+@pending_app.command("retry")
+def pending_retry(logical_path: str, root: RootOption = None,
+                  base_version: str | None = None, from_source: bool = False):
+    """重新排队，随后运行 push；--base-version 显式选择基准，--from-source 重新取快照。"""
+    with errors(), State.discover(root) as state, remote_for(state) as remote:
+        emit(retry_pending(state, remote, validate_path(logical_path), base_version, from_source))
 
 
 @app.command()
@@ -101,8 +145,8 @@ def restore(
 
 
 @app.command()
-def verify(root: Path, full: bool = False):
-    """核对本地清单与远端当前版本；--full 对本地内容重新计算 SHA-256。"""
+def verify(root: Path, full: bool = False, remote_content: bool = False):
+    """核对清单；--full 重算本地哈希，--remote-content 下载并校验命名空间当前版本。"""
     with errors(), State(root) as state, remote_for(state) as remote:
         manifest = state.manifest()
         files = {item["logical_path"]: item for item in remote.list_all(
@@ -135,9 +179,19 @@ def verify(root: Path, full: bool = False):
                 or remote_file["current_version"]["size_bytes"] != saved["size_bytes"]
             ):
                 problems.append({"path": path, "reason": "远端版本与本地清单不一致"})
+        remote_checked = 0
+        if remote_content:
+            for path, file in files.items():
+                try:
+                    verify_remote_content(remote, file["current_version"])
+                    remote_checked += 1
+                except (ValueError, RuntimeError, httpx.HTTPError) as error:
+                    problems.append({"path": path, "reason": f"远端内容检查失败: {error}"})
         emit({"mode": "full" if full else "quick", "problems": problems,
               "local_missing_remote_retained": sorted(set(manifest) - present),
-              "note": "检查远端元数据；不下载全部远端内容，不是服务端磁盘巡检"})
+              "remote_content_checked": remote_checked,
+              "note": ("已下载校验命名空间当前版本；不含历史版本" if remote_content
+                       else "仅检查远端元数据；使用 --remote-content 检查实际内容")})
         if problems:
             raise typer.Exit(1)
 

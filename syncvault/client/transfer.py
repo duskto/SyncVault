@@ -2,10 +2,19 @@ import hashlib
 import uuid
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
+import httpx
+
 from syncvault.client.hashing import hash_file
 from syncvault.client.planner import plan
 from syncvault.client.snapshot import snapshot
 from syncvault.client.transport import APIError
+
+
+class PushFailed(RuntimeError):
+    def __init__(self, versions, failures):
+        self.versions = versions
+        self.failures = failures
+        super().__init__(f"{len(failures)} 个文件上传失败；其他文件已处理，详见失败列表")
 
 
 def validate_version(pending, version):
@@ -28,7 +37,7 @@ def upload_pending(state, remote, pending, concurrency=4, progress=lambda _: Non
         if info and info["status"] == "COMPLETED":
             validate_version(pending, info["version"])
             state.committed(pending, info["version"])
-            state.snapshot_path(pending["snapshot_path"]).unlink(missing_ok=True)
+            state.remove_snapshot_if_unreferenced(pending["snapshot_path"])
             return info["version"]
         if info and info["status"] in ("FAILED", "CANCELLED"):
             raise ValueError(f"会话 {info['status']}: {info.get('failure_code')}；快照已保留")
@@ -55,7 +64,7 @@ def upload_pending(state, remote, pending, concurrency=4, progress=lambda _: Non
         if info["status"] == "COMPLETED":
             validate_version(pending, info["version"])
             state.committed(pending, info["version"])
-            source.unlink(missing_ok=True)
+            state.remove_snapshot_if_unreferenced(pending["snapshot_path"])
             return info["version"]
         if info["status"] == "EXPIRED":
             return upload_pending(state, remote, pending, concurrency, progress)
@@ -97,28 +106,49 @@ def upload_pending(state, remote, pending, concurrency=4, progress=lambda _: Non
     version = remote.request("POST", f"/api/v1/uploads/{upload_id}/complete").json()
     validate_version(pending, version)
     state.committed(pending, version)
-    source.unlink(missing_ok=True)
+    state.remove_snapshot_if_unreferenced(pending["snapshot_path"])
     return version
 
 
 def push(state, remote, concurrency=4, chunk_size=4 * 1024 * 1024, full=False,
-         progress=lambda _: None):
+         progress=lambda _: None, continue_on_error=False):
     if not 1 <= concurrency <= 32 or not 1 <= chunk_size <= 64 * 1024 * 1024:
         raise ValueError("concurrency 必须为 1–32，chunk_size 必须为 1–64MiB 字节")
     versions = []
+    failures = []
+
+    def attempt(path, operation):
+        try:
+            versions.append(operation())
+        except (ValueError, OSError, APIError, httpx.TransportError) as error:
+            if not continue_on_error:
+                raise
+            failure = {"path": path, "error": str(error)}
+            failures.append(failure)
+            progress(failure)
+
     with state.lock():
         state.cleanup_snapshots()
         for pending in state.pending():
-            versions.append(upload_pending(state, remote, pending, concurrency, progress))
+            if pending.get("paused"):
+                progress({"path": pending["logical_path"], "action": "skip", "reason": "任务已暂停"})
+                continue
+            attempt(pending["logical_path"],
+                    lambda: upload_pending(state, remote, pending, concurrency, progress))
         manifest = state.manifest()
         for operation in plan(state, full=full):
             if operation.action == "skip":
                 progress(operation.as_dict())
                 continue
             old = manifest.get(operation.logical_path, {})
-            pending = snapshot(
-                state, operation.logical_path, chunk_size, old.get("last_synced_version")
-            )
-            state.save_pending(pending)
-            versions.append(upload_pending(state, remote, pending, concurrency, progress))
+            def upload_new():
+                pending = snapshot(
+                    state, operation.logical_path, chunk_size, old.get("last_synced_version")
+                )
+                state.save_pending(pending)
+                return upload_pending(state, remote, pending, concurrency, progress)
+
+            attempt(operation.logical_path, upload_new)
+    if failures:
+        raise PushFailed(versions, failures)
     return versions

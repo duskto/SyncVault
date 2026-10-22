@@ -48,6 +48,20 @@ def test_idempotency_binding_and_concurrent_initialization(api):
     assert initialize(api, b"other", key="key").status_code == 409
 
 
+def test_idempotency_lookup_is_read_only_and_owner_scoped(api):
+    initialized = initialize(api, b"bytes", key="lost-receipt").json()
+    query = {"idempotency_key": "lost-receipt"}
+    result = api.get("/api/v1/uploads", params=query)
+    assert result.status_code == 200
+    assert result.json()["upload_id"] == initialized["upload_id"]
+    assert api.get("/api/v1/uploads", params=query,
+                   headers={"Authorization": "Bearer bob-token"}).status_code == 404
+    assert api.get("/api/v1/uploads", params={"idempotency_key": "missing"}).status_code == 404
+    assert api.get("/api/v1/uploads", params={"idempotency_key": ""}).status_code == 422
+    with api.app.state.sessions() as db:
+        assert db.scalar(select(func.count()).select_from(Upload)) == 1
+
+
 def test_concurrent_duplicate_blocks_are_unique(api):
     upload_id = initialize(api, b"abcd").json()["upload_id"]
     with ThreadPoolExecutor(4) as executor:
